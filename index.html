@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mining Ops Analytics</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%276%27 fill=%27%230f1b2d%27/%3E%3Ctext x=%2716%27 y=%2721%27 font-size=%2713%27 font-weight=%27700%27 text-anchor=%27middle%27 fill=%27%23fff%27 font-family=%27Arial%27%3EWY%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f4f4f1; --surface: #fcfcfb; --surface-2: #f4f4f1; --border: #e3e2dc; --grid: #e1e0d9;
+    --ink: #0b0b0b; --ink-2: #52514e; --muted: #77766f; --accent: #2a78d6; --accent-wash: #e8f0fb;
+    --crit: #d03b3b; --crit-wash: #fbe9e9; --good: #006300; --focus: #2a78d6; --brand: #0f1b2d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --surface-2: #121211; --border: #2e2d2a; --grid: #2c2c2a;
+      --ink: #f0efec; --ink-2: #c3c2b7; --muted: #8f8e86; --accent: #3987e5; --accent-wash: #1e2a3b;
+      --crit: #e66767; --crit-wash: #3a2222; --good: #0ca30c; --focus: #3987e5; --brand: #0a121f;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #121211; --border: #2e2d2a; --grid: #2c2c2a;
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #8f8e86; --accent: #3987e5; --accent-wash: #1e2a3b;
+    --crit: #e66767; --crit-wash: #3a2222; --good: #0ca30c; --focus: #3987e5; --brand: #0a121f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 14.5px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  button:focus-visible, input:focus-visible, select:focus-visible, th.sortable:focus-visible, tr.click:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  .topbar { background: var(--brand); color: #f0efec; border-bottom: 3px solid var(--accent); }
+  .topbar .in { max-width: 1280px; margin: 0 auto; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
+  .brand { display: flex; gap: 12px; align-items: center; }
+  .logo { width: 40px; height: 40px; border-radius: 8px; background: #f0efec; color: #0f1b2d; font-weight: 800; letter-spacing: -0.04em; display: grid; place-items: center; font-size: 17px; }
+  h1 { font-size: 19px; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: #aab3c2; font-size: 12.5px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .btn { border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  .btn:hover { color: var(--ink); }
+  .topbar .btn { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); color: #e6e9ef; }
+  .topbar .btn:hover { background: rgba(255,255,255,.16); color: #fff; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .topbar .btn.primary:hover { background: #3987e5; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: inherit; cursor: pointer; }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 18px 16px 48px; }
+  .statusbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; color: var(--ink-2); font-size: 13px; margin-bottom: 14px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); display: inline-block; }
+  .dot.live { background: #0ca30c; } .dot.err { background: var(--crit); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
+  .card h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); margin: 0 0 10px; font-weight: 650; }
+  .card h2 .hint { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--muted); margin-left: 8px; }
+  .note { color: var(--muted); font-size: 12.5px; }
+
+  .src { display: grid; gap: 8px; }
+  .src .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .src input[type=text] { flex: 1 1 360px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+  .msg-err { color: var(--crit); font-size: 13px; white-space: pre-wrap; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
+  .kpi .l { font-size: 12px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
+  .kpi .v { font-size: 28px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .kpi .s { font-size: 12.5px; color: var(--muted); }
+
+  .settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .tset { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); }
+  .tset.off { opacity: .55; }
+  .tset .t { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; }
+  .field { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); margin-top: 4px; }
+  .field input[type=number], .field select { width: 96px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+  .field select { width: auto; max-width: 180px; }
+  .field.stack { flex-direction: column; align-items: stretch; gap: 4px; }
+  .field.stack select { max-width: none; width: 100%; padding: 5px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+
+  .tablewrap { overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 7px 10px; text-align: right; font-size: 13.5px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--ink-2); font-weight: 600; font-size: 12.5px; background: var(--surface); position: sticky; top: 0; }
+  th:first-child, td:first-child { text-align: left; }
+  td.l, th.l { text-align: left; }
+  tr.click { cursor: pointer; } tr.click:hover td { background: var(--accent-wash); }
+  tr.active td { background: var(--accent-wash); font-weight: 600; }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; }
+  .badge { display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); margin-right: 4px; color: var(--ink-2); }
+  .tag-spike, .tag-drop { font-weight: 650; }
+  .tag-spike { color: var(--ink); } .tag-drop { color: var(--ink); }
+  td.flag { color: var(--crit); font-weight: 650; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; margin-bottom: 12px; }
+  .grp { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .grp > .lab { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); padding: 2px; }
+  .seg button { border: 0; background: transparent; color: var(--ink-2); padding: 5px 11px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .seg button[aria-pressed="true"] { background: var(--accent-wash); color: var(--ink); font-weight: 650; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--border); background: var(--surface-2); border-radius: 999px; padding: 4px 12px; cursor: pointer; font-size: 13px; color: var(--ink-2); }
+  .chip[aria-pressed="true"] { background: var(--accent-wash); border-color: var(--accent); color: var(--ink); font-weight: 650; }
+  .chartbox { position: relative; height: 400px; }
+  .keyrow { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 12.5px; color: var(--ink-2); margin-bottom: 8px; }
+  .keyrow i { display: inline-block; vertical-align: -1px; margin-right: 6px; }
+  .k-line { width: 16px; height: 2px; } .k-dash { width: 16px; height: 0; border-top: 2px dashed; } .k-box { width: 10px; height: 10px; border-radius: 3px; }
+  .k-dia { width: 9px; height: 9px; transform: rotate(45deg); background: var(--crit); }
+  .empty { padding: 36px 8px; text-align: center; color: var(--muted); }
+  footer { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+  @media (max-width: 720px) { .chartbox { height: 320px; } .kpi .v { font-size: 24px; } }
+</style>
+</head>
+<body>
+<div class="topbar"><div class="in">
+  <div class="brand"><div class="logo" aria-hidden="true">W-Y</div>
+    <div><h1>Mining Ops Analytics</h1><div class="sub">Weyland-Yutani Corporation · daily resource extraction</div></div></div>
+  <div class="actions">
+    <button class="btn" id="refresh" type="button">Refresh</button>
+    <label class="check"><input type="checkbox" id="auto"> Auto-refresh (30 s)</label>
+    <button class="btn" id="srcbtn" type="button" aria-expanded="false">Data source</button>
+    <button class="btn" id="theme" type="button">Theme</button>
+    <button class="btn primary" id="pdf" type="button">Download PDF report</button>
+  </div>
+</div></div>
+
+<div class="wrap">
+  <div class="statusbar"><span class="dot" id="dot"></span><span id="status">Starting…</span></div>
+
+  <section class="card" id="srcpanel" hidden>
+    <h2>Data source</h2>
+    <div class="src">
+      <div class="row"><input type="text" id="url" placeholder="Google Sheets link (anyone with the link can view)" aria-label="Google Sheets link">
+        <button class="btn primary" id="load" type="button">Load</button></div>
+      <div class="row"><span class="note">The sheet must contain a tab named <b>Data</b> (Date, one column per mine, Total) as produced by the generator.</span></div>
+      <div class="row"><button class="btn" id="demo" type="button">Use demo data</button>
+        <label class="btn" for="file" style="cursor:pointer">Upload CSV</label><input type="file" id="file" accept=".csv,text/csv" hidden></div>
+      <div class="msg-err" id="srcerr"></div>
+    </div>
+  </section>
+
+  <div id="main" hidden>
+    <div class="kpis" id="kpis"></div>
+
+    <section class="card">
+      <h2>Anomaly tests <span class="hint">adjust the parameters, everything below recalculates</span></h2>
+      <div class="settings" id="settings"></div>
+    </section>
+
+    <section class="card">
+      <h2>Statistics by mine <span class="hint">click a row to chart it</span></h2>
+      <div class="tablewrap"><table id="stats"></table></div>
+    </section>
+
+    <section class="card">
+      <h2>Chart</h2>
+      <div class="controls">
+        <div class="grp"><span class="lab">Series</span><div class="chips" id="serieschips"></div></div>
+        <div class="grp"><span class="lab">Type</span><div class="seg" id="typeseg"></div></div>
+        <div class="grp"><span class="lab">Trendline</span><div class="seg" id="trendseg"></div></div>
+        <div class="grp"><div class="seg" id="viewseg"></div></div>
+      </div>
+      <div id="chartview">
+        <div class="keyrow" id="key"></div>
+        <div class="chartbox"><canvas id="chart" role="img" aria-label="Daily output chart"></canvas></div>
+        <div class="note" id="chartnote" style="margin-top:8px"></div>
+      </div>
+      <div id="tableview" hidden><div class="tablewrap" style="max-height:480px"><table id="datatable"></table></div></div>
+    </section>
+
+    <section class="card">
+      <h2>Detected anomalies <span class="hint" id="anomhint"></span></h2>
+      <div class="tablewrap" style="max-height:520px"><table id="anoms"></table></div>
+    </section>
+    <footer>Anomalies are groups of consecutive days flagged by at least one enabled test. Statistics use the raw daily values; the tests run on the pre-processed series selected above.</footer>
+  </div>
+</div>
+
+<script src="chart.umd.js"></script>
+<script src="jspdf.umd.min.js"></script>
+<script src="jspdf.plugin.autotable.min.js"></script>
+<script src="config.js"></script>
+<script src="demo.js"></script>
+<script src="stats.js"></script>
+<script src="chartkit.js"></script>
+<script src="report.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
